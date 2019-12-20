@@ -1,0 +1,10 @@
+--cpu=Cortex-M4.fp
+".\objects\main_1.o"
+".\objects\m_thread.o"
+".\objects\m_thread_switch.o"
+".\objects\startup_stm32f407xx.o"
+".\objects\system_stm32f4xx.o"
+--strict --scatter ".\Objects\mrt.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list ".\Listings\mrt.map" -o .\Objects\mrt.axf
