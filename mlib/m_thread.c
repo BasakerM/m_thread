@@ -1,4 +1,5 @@
 #include "m_thread.h"
+#include "stm32f4xx.h"
 
 /**** 宏定义 ****/
 
@@ -131,6 +132,9 @@ void _m_thread_switch(_m_uint32_t from, _m_uint32_t to); /* 切换线程 */
 
 /**************** 函数定义 ****************/
 
+
+	static unsigned short thread1_tick = 0,thread2_tick = 0;
+
 /**************** 外部可调用函数 ****************/
 
 //void m_interrupt_enter(void)
@@ -140,6 +144,25 @@ void _m_thread_switch(_m_uint32_t from, _m_uint32_t to); /* 切换线程 */
 //void m_interrupt_leave(void)
 //{
 //}
+
+/*
+*
+*/
+uint32_t m_systick_init(uint32_t ticks)
+{
+  if ((ticks - 1UL) > SysTick_LOAD_RELOAD_Msk)
+  {
+    return (1UL);                                                   /* Reload value impossible */
+  }
+
+  SysTick->LOAD  = (uint32_t)(ticks - 1UL);                         /* set reload register */
+  NVIC_SetPriority (SysTick_IRQn, (1UL << __NVIC_PRIO_BITS) - 1UL); /* set Priority for Systick Interrupt */
+  SysTick->VAL   = 0UL;                                             /* Load the SysTick Counter Value */
+  SysTick->CTRL  = SysTick_CTRL_CLKSOURCE_Msk |
+                   SysTick_CTRL_TICKINT_Msk   |
+                   SysTick_CTRL_ENABLE_Msk;                         /* Enable SysTick IRQ and SysTick Timer */
+  return (0UL);                                                     /* Function successful */
+}
 
 /*
 * 线程初始化函数
@@ -160,6 +183,17 @@ void m_thread_init(void)
 	m_thread_creat(0,_m_free_thread_entry);
 	/* 手动指定第一个运行的线程 */
 	_m_current_thread = &_m_thread[0]; /* 空闲线程 */
+	/* 初始化 systick */
+	m_systick_init(SystemCoreClock/1000);
+}
+
+/*
+*
+*/
+void SysTick_Handler(void)
+{
+	/* 时基更新 */
+	m_tick_update();
 }
 
 /*
@@ -218,6 +252,20 @@ void m_thread_scheduler_startup(void)
 */
 void m_thread_suspend(_m_uint32_t tick)
 {
+	m_interrupt_disable();
+
+	if(_m_current_thread == &_m_thread[1])
+	{
+		thread1_tick = 10;
+	}
+	else if(_m_current_thread == &_m_thread[2])
+	{
+		thread2_tick = 10;
+	}
+	_m_thread_scheduler();
+	
+	m_interrupt_enable(0);
+	return;
 //	_m_uint8_t temp = 0;
 	/* 关中断 */
 	/*temp =*/ m_interrupt_disable();
@@ -244,6 +292,20 @@ void m_tick_update(void)
 {
 	_m_thread_t *thread;
 	_m_list_t *index_list;
+	
+	////////////////////////////////////
+	if(thread1_tick > 0)
+	{
+		--thread1_tick;
+	}
+	if(thread2_tick > 0)
+	{
+		--thread2_tick;
+	}
+	_m_thread_scheduler();	
+	
+	return;
+	///////////////////////////////////
 	
 	/* 计时器计数 */
 	++_m_tick;
@@ -302,8 +364,28 @@ void _m_free_thread_entry(void)
 void _m_thread_scheduler(void)
 {
 	volatile _m_uint8_t index = 0;
-//	_m_thread_t *to_thread = _m_null;
+	_m_thread_t *to_thread = _m_null;
 	_m_thread_t *from_thread = _m_null;
+	
+	if(thread1_tick != 0 && thread2_tick != 0)
+	{
+		if(_m_current_thread == &_m_thread[0]) return;
+		from_thread = _m_current_thread;
+		_m_current_thread = &_m_thread[0];
+	}
+	else if(thread1_tick == 0)
+	{
+		from_thread = _m_current_thread;
+		_m_current_thread = &_m_thread[1];
+	}
+	else if(thread2_tick == 0)
+	{
+		from_thread = _m_current_thread;
+		_m_current_thread = &_m_thread[2];
+	}
+	_m_thread_switch((_m_uint32_t)&from_thread->sp,(_m_uint32_t)&_m_current_thread->sp);
+	
+	return;
 	
 	/* 为0,则没有线程就绪,那就运行空闲线程 */
 	if(_m_priority_ready_group == 0)

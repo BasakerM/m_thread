@@ -29,12 +29,21 @@ Project File Date:  12/20/2019
 Rebuild target 'Target 1'
 assembling m_thread_switch.S...
 assembling startup_stm32f407xx.s...
-compiling m_thread.c...
-compiling main.c...
 compiling system_stm32f4xx.c...
+compiling main.c...
+compiling m_thread.c...
+..\mlib\m_thread.c(271): warning:  #111-D: statement is unreachable
+  	/*temp =*/ m_interrupt_disable();
+..\mlib\m_thread.c(311): warning:  #111-D: statement is unreachable
+  	++_m_tick;
+..\mlib\m_thread.c(391): warning:  #111-D: statement is unreachable
+  	if(_m_priority_ready_group == 0)
+..\mlib\m_thread.c(367): warning:  #177-D: variable "to_thread"  was declared but never referenced
+  	_m_thread_t *to_thread = _m_null;
+..\mlib\m_thread.c: 4 warnings, 0 errors
 linking...
-Program Size: Code=1582 RO-data=682 RW-data=40 ZI-data=9120  
-".\Objects\mrt.axf" - 0 Error(s), 0 Warning(s).
+Program Size: Code=1420 RO-data=424 RW-data=44 ZI-data=9116  
+".\Objects\mrt.axf" - 0 Error(s), 4 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -62,10 +71,10 @@ Package Vendor: Keil
    * Component: Keil::Device:Startup:2.6.3
       Source file:   MDK\Device\Source\ARM\STM32F40xxx_41xxx_OPT.s
       Source file:   MDK\Device\Source\ARM\STM32F4xx_OTP.s
-      Include file:  Drivers\CMSIS\Device\ST\STM32F4xx\Include\stm32f4xx.h
       Source file:   Drivers\CMSIS\Device\ST\STM32F4xx\Source\Templates\arm\startup_stm32f407xx.s
+      Include file:  Drivers\CMSIS\Device\ST\STM32F4xx\Include\stm32f4xx.h
       Source file:   Drivers\CMSIS\Device\ST\STM32F4xx\Source\Templates\system_stm32f4xx.c
-Build Time Elapsed:  00:00:01
+Build Time Elapsed:  00:00:02
 </pre>
 </body>
 </html>
