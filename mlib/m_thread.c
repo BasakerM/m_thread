@@ -3,7 +3,7 @@
 
 /**** 宏定义 ****/
 
-#define _m_thread_statck_size 256 /* 单个线程的栈空间大小 */
+#define _m_thread_statck_size 512 /* 单个线程的栈空间大小 */
 
 #define _m_null (0)
 
@@ -42,6 +42,7 @@ typedef struct _m_struct_thread_t
 	
 	_m_uint8_t priority; /* 线程优先级 */
 	_m_uint32_t timeout; /* 超时时间 */
+	_m_uint8_t state; /* 就绪状态 */
 	
 	_m_list_t timer_list; /* 定时器 */
 }_m_thread_t;
@@ -81,6 +82,7 @@ _m_uint32_t _m_interrupt_from_thread; /* 用于存储上一个线程的栈的 sp
 _m_uint32_t _m_interrupt_to_thread; /* 用于存储下一个将要运行的线程的栈的 sp 的指针 */
 _m_uint32_t _m_thread_switch_interrupt_flag; /* PendSV 中断服务函数执行标志 */
 
+ALIGN(4)
 static _m_statck_t _m_thread_statck[m_thread_max+1][_m_thread_statck_size]; /* 线程栈 */
 static _m_thread_t _m_thread[m_thread_max+1]; /* 线程控制块 */
 static _m_list_t _m_timer_list_head; /* 定时器链表头 */
@@ -211,6 +213,7 @@ void m_thread_creat(_m_uint8_t priority, void *entry)
 	/* 初始化线程 */
 	_m_list_init(&(_m_thread[priority].timer_list));
 	_m_thread[priority].priority = priority;
+	_m_thread[priority].state = 1;
 	/* 初始化线程栈,获取栈顶指针	*/
 	_m_thread[priority].sp = (void*)_m_thread_statck_init(entry,
 			(void*)((char*)(_m_thread_statck[priority]) + _m_thread_statck_size - 2));
@@ -253,15 +256,20 @@ void m_thread_scheduler_startup(void)
 void m_thread_suspend(_m_uint32_t tick)
 {
 	m_interrupt_disable();
-
+	
 	if(_m_current_thread == &_m_thread[1])
 	{
 		thread1_tick = 10;
+		_m_thread[1].timeout = 10;//_m_tick + 10;
+		_m_thread[1].state = 0;
 	}
 	else if(_m_current_thread == &_m_thread[2])
 	{
 		thread2_tick = 10;
+		_m_thread[2].timeout = 10;//_m_tick + 10;
+		_m_thread[2].state = 0;
 	}
+		
 	_m_thread_scheduler();
 	
 	m_interrupt_enable(0);
@@ -294,14 +302,39 @@ void m_tick_update(void)
 	_m_list_t *index_list;
 	
 	////////////////////////////////////
-	if(thread1_tick > 0)
+	++_m_tick;
+	if(_m_thread[1].timeout > 0)
 	{
-		--thread1_tick;
+		--_m_thread[1].timeout;
 	}
-	if(thread2_tick > 0)
+	if(_m_thread[2].timeout > 0)
 	{
-		--thread2_tick;
+		--_m_thread[2].timeout;
 	}
+	if(_m_thread[1].timeout == 0)
+	{
+		_m_thread[1].state = 1;
+	}
+	if(_m_thread[2].timeout == 0)
+	{
+		_m_thread[2].state = 1;
+	}
+//	if(thread1_tick > 0)
+//	{
+//		--thread1_tick;
+//	}
+//	if(thread2_tick > 0)
+//	{
+//		--thread2_tick;
+//	}
+//	if(thread1_tick == 0)
+//	{
+//		_m_thread[1].state = 1;
+//	}
+//	if(thread2_tick == 0)
+//	{
+//		_m_thread[2].state = 1;
+//	}
 	_m_thread_scheduler();	
 	
 	return;
@@ -364,25 +397,41 @@ void _m_free_thread_entry(void)
 void _m_thread_scheduler(void)
 {
 	volatile _m_uint8_t index = 0;
-	_m_thread_t *to_thread = _m_null;
+//	_m_thread_t *to_thread = _m_null;
 	_m_thread_t *from_thread = _m_null;
 	
-	if(thread1_tick != 0 && thread2_tick != 0)
-	{
-		if(_m_current_thread == &_m_thread[0]) return;
-		from_thread = _m_current_thread;
-		_m_current_thread = &_m_thread[0];
-	}
-	else if(thread1_tick == 0)
+	if(_m_thread[1].state == 1)
 	{
 		from_thread = _m_current_thread;
 		_m_current_thread = &_m_thread[1];
 	}
-	else if(thread2_tick == 0)
+	else if(_m_thread[2].state == 1)
 	{
 		from_thread = _m_current_thread;
 		_m_current_thread = &_m_thread[2];
 	}
+	else
+	{
+		from_thread = _m_current_thread;
+		_m_current_thread = &_m_thread[0];
+	}
+	
+//	if(thread1_tick != 0 && thread2_tick != 0)
+//	{
+//		if(_m_current_thread == &_m_thread[0]) return;
+//		from_thread = _m_current_thread;
+//		_m_current_thread = &_m_thread[0];
+//	}
+//	else if(thread1_tick == 0)
+//	{
+//		from_thread = _m_current_thread;
+//		_m_current_thread = &_m_thread[1];
+//	}
+//	else if(thread2_tick == 0)
+//	{
+//		from_thread = _m_current_thread;
+//		_m_current_thread = &_m_thread[2];
+//	}
 	_m_thread_switch((_m_uint32_t)&from_thread->sp,(_m_uint32_t)&_m_current_thread->sp);
 	
 	return;
@@ -442,6 +491,9 @@ _m_statck_t* _m_thread_statck_init(void *entry,_m_statck_t *addr)
 	struct _stack_frame *_stack_frame;
 	_m_statck_t *stk;
 	_m_uint32_t i;
+	
+	/* 因为调试中发现最好栈顶指针会向后偏移104个字节，所以这里主动向前偏移以防溢出 */
+	addr -= 112;
 	
 	/* 获取向下8字对齐后的栈顶指针 */
 	stk = (_m_statck_t*)_m_align_down((_m_uint32_t)addr,8);

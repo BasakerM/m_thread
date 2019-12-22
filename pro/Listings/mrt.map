@@ -20,8 +20,8 @@ Section Cross References
     main_1.o(i.main) refers to main_1.o(i.f3) for f3
     m_thread.o(i.SysTick_Handler) refers to m_thread.o(i.m_tick_update) for m_tick_update
     m_thread.o(i._m_thread_scheduler) refers to m_thread_switch.o(.text) for _m_thread_switch
-    m_thread.o(i._m_thread_scheduler) refers to m_thread.o(.data) for thread1_tick
     m_thread.o(i._m_thread_scheduler) refers to m_thread.o(.bss) for _m_thread
+    m_thread.o(i._m_thread_scheduler) refers to m_thread.o(.data) for _m_current_thread
     m_thread.o(i.m_thread_creat) refers to m_thread.o(i._m_list_init) for _m_list_init
     m_thread.o(i.m_thread_creat) refers to m_thread.o(i._m_thread_statck_init) for _m_thread_statck_init
     m_thread.o(i.m_thread_creat) refers to m_thread.o(.bss) for _m_thread
@@ -41,7 +41,8 @@ Section Cross References
     m_thread.o(i.m_thread_suspend) refers to m_thread.o(.data) for _m_current_thread
     m_thread.o(i.m_thread_suspend) refers to m_thread.o(.bss) for _m_thread
     m_thread.o(i.m_tick_update) refers to m_thread.o(i._m_thread_scheduler) for _m_thread_scheduler
-    m_thread.o(i.m_tick_update) refers to m_thread.o(.data) for thread1_tick
+    m_thread.o(i.m_tick_update) refers to m_thread.o(.data) for _m_tick
+    m_thread.o(i.m_tick_update) refers to m_thread.o(.bss) for _m_thread
     m_thread_switch.o(.text) refers to m_thread.o(.data) for _m_thread_switch_interrupt_flag
     startup_stm32f407xx.o(STACK) refers (Special) to heapauxi.o(.text) for __use_two_region_memory
     startup_stm32f407xx.o(HEAP) refers (Special) to heapauxi.o(.text) for __use_two_region_memory
@@ -308,20 +309,20 @@ Image Symbol Table
     i._m_free_thread_entry                   0x08000400   Section        0  m_thread.o(i._m_free_thread_entry)
     i._m_list_init                           0x08000404   Section        0  m_thread.o(i._m_list_init)
     i._m_thread_scheduler                    0x0800040c   Section        0  m_thread.o(i._m_thread_scheduler)
-    i._m_thread_statck_init                  0x08000480   Section        0  m_thread.o(i._m_thread_statck_init)
-    i.f1                                     0x080004bc   Section        0  main_1.o(i.f1)
-    i.f2                                     0x080004dc   Section        0  main_1.o(i.f2)
-    i.f3                                     0x080004fc   Section        0  main_1.o(i.f3)
-    i.m_systick_init                         0x0800051c   Section        0  m_thread.o(i.m_systick_init)
-    i.m_thread_creat                         0x08000570   Section        0  m_thread.o(i.m_thread_creat)
-    i.m_thread_init                          0x080005c0   Section        0  m_thread.o(i.m_thread_init)
-    i.m_thread_scheduler_startup             0x08000604   Section        0  m_thread.o(i.m_thread_scheduler_startup)
-    i.m_thread_startup                       0x08000614   Section        0  m_thread.o(i.m_thread_startup)
-    i.m_thread_suspend                       0x08000640   Section        0  m_thread.o(i.m_thread_suspend)
-    i.m_tick_update                          0x08000688   Section        0  m_thread.o(i.m_tick_update)
-    i.main                                   0x080006bc   Section        0  main_1.o(i.main)
-    x$fpl$fpinit                             0x08000708   Section       10  fpinit.o(x$fpl$fpinit)
-    $v0                                      0x08000708   Number         0  fpinit.o(x$fpl$fpinit)
+    i._m_thread_statck_init                  0x08000464   Section        0  m_thread.o(i._m_thread_statck_init)
+    i.f1                                     0x080004a4   Section        0  main_1.o(i.f1)
+    i.f2                                     0x080004c4   Section        0  main_1.o(i.f2)
+    i.f3                                     0x080004e4   Section        0  main_1.o(i.f3)
+    i.m_systick_init                         0x08000504   Section        0  m_thread.o(i.m_systick_init)
+    i.m_thread_creat                         0x08000558   Section        0  m_thread.o(i.m_thread_creat)
+    i.m_thread_init                          0x080005b8   Section        0  m_thread.o(i.m_thread_init)
+    i.m_thread_scheduler_startup             0x080005fc   Section        0  m_thread.o(i.m_thread_scheduler_startup)
+    i.m_thread_startup                       0x0800060c   Section        0  m_thread.o(i.m_thread_startup)
+    i.m_thread_suspend                       0x08000638   Section        0  m_thread.o(i.m_thread_suspend)
+    i.m_tick_update                          0x0800069c   Section        0  m_thread.o(i.m_tick_update)
+    i.main                                   0x080006f4   Section        0  main_1.o(i.main)
+    x$fpl$fpinit                             0x08000740   Section       10  fpinit.o(x$fpl$fpinit)
+    $v0                                      0x08000740   Number         0  fpinit.o(x$fpl$fpinit)
     .data                                    0x20002000   Section        3  main_1.o(.data)
     .data                                    0x20002004   Section       36  m_thread.o(.data)
     _m_timer_list_head                       0x20002010   Data           8  m_thread.o(.data)
@@ -331,15 +332,15 @@ Image Symbol Table
     thread1_tick                             0x20002024   Data           2  m_thread.o(.data)
     thread2_tick                             0x20002026   Data           2  m_thread.o(.data)
     .data                                    0x20002028   Section        4  system_stm32f4xx.o(.data)
-    .bss                                     0x2000202c   Section      828  m_thread.o(.bss)
-    _m_thread_statck                         0x2000202c   Data         768  m_thread.o(.bss)
-    _m_thread                                0x2000232c   Data          60  m_thread.o(.bss)
-    .bss                                     0x20002368   Section       96  libspace.o(.bss)
-    HEAP                                     0x200023c8   Section     4096  startup_stm32f407xx.o(HEAP)
-    Heap_Mem                                 0x200023c8   Data        4096  startup_stm32f407xx.o(HEAP)
-    STACK                                    0x200033c8   Section     4096  startup_stm32f407xx.o(STACK)
-    Stack_Mem                                0x200033c8   Data        4096  startup_stm32f407xx.o(STACK)
-    __initial_sp                             0x200043c8   Data           0  startup_stm32f407xx.o(STACK)
+    .bss                                     0x2000202c   Section     1608  m_thread.o(.bss)
+    _m_thread_statck                         0x2000202c   Data        1536  m_thread.o(.bss)
+    _m_thread                                0x2000262c   Data          72  m_thread.o(.bss)
+    .bss                                     0x20002674   Section       96  libspace.o(.bss)
+    HEAP                                     0x200026d8   Section     4096  startup_stm32f407xx.o(HEAP)
+    Heap_Mem                                 0x200026d8   Data        4096  startup_stm32f407xx.o(HEAP)
+    STACK                                    0x200036d8   Section     4096  startup_stm32f407xx.o(STACK)
+    Stack_Mem                                0x200036d8   Data        4096  startup_stm32f407xx.o(STACK)
+    __initial_sp                             0x200046d8   Data           0  startup_stm32f407xx.o(STACK)
 
     Global Symbols
 
@@ -537,24 +538,24 @@ Image Symbol Table
     SystemInit                               0x0800039d   Thumb Code    82  system_stm32f4xx.o(i.SystemInit)
     _m_free_thread_entry                     0x08000401   Thumb Code     4  m_thread.o(i._m_free_thread_entry)
     _m_list_init                             0x08000405   Thumb Code     6  m_thread.o(i._m_list_init)
-    _m_thread_scheduler                      0x0800040d   Thumb Code    98  m_thread.o(i._m_thread_scheduler)
-    _m_thread_statck_init                    0x08000481   Thumb Code    56  m_thread.o(i._m_thread_statck_init)
-    f1                                       0x080004bd   Thumb Code    28  main_1.o(i.f1)
-    f2                                       0x080004dd   Thumb Code    28  main_1.o(i.f2)
-    f3                                       0x080004fd   Thumb Code    28  main_1.o(i.f3)
-    m_systick_init                           0x0800051d   Thumb Code    74  m_thread.o(i.m_systick_init)
-    m_thread_creat                           0x08000571   Thumb Code    72  m_thread.o(i.m_thread_creat)
-    m_thread_init                            0x080005c1   Thumb Code    48  m_thread.o(i.m_thread_init)
-    m_thread_scheduler_startup               0x08000605   Thumb Code    12  m_thread.o(i.m_thread_scheduler_startup)
-    m_thread_startup                         0x08000615   Thumb Code    38  m_thread.o(i.m_thread_startup)
-    m_thread_suspend                         0x08000641   Thumb Code    56  m_thread.o(i.m_thread_suspend)
-    m_tick_update                            0x08000689   Thumb Code    44  m_thread.o(i.m_tick_update)
-    main                                     0x080006bd   Thumb Code    64  main_1.o(i.main)
-    _fp_init                                 0x08000709   Thumb Code    10  fpinit.o(x$fpl$fpinit)
-    __fplib_config_fpu_vfp                   0x08000711   Thumb Code     0  fpinit.o(x$fpl$fpinit)
-    __fplib_config_pureend_doubles           0x08000711   Thumb Code     0  fpinit.o(x$fpl$fpinit)
-    Region$$Table$$Base                      0x08000714   Number         0  anon$$obj.o(Region$$Table)
-    Region$$Table$$Limit                     0x08000734   Number         0  anon$$obj.o(Region$$Table)
+    _m_thread_scheduler                      0x0800040d   Thumb Code    78  m_thread.o(i._m_thread_scheduler)
+    _m_thread_statck_init                    0x08000465   Thumb Code    58  m_thread.o(i._m_thread_statck_init)
+    f1                                       0x080004a5   Thumb Code    28  main_1.o(i.f1)
+    f2                                       0x080004c5   Thumb Code    28  main_1.o(i.f2)
+    f3                                       0x080004e5   Thumb Code    28  main_1.o(i.f3)
+    m_systick_init                           0x08000505   Thumb Code    74  m_thread.o(i.m_systick_init)
+    m_thread_creat                           0x08000559   Thumb Code    86  m_thread.o(i.m_thread_creat)
+    m_thread_init                            0x080005b9   Thumb Code    48  m_thread.o(i.m_thread_init)
+    m_thread_scheduler_startup               0x080005fd   Thumb Code    12  m_thread.o(i.m_thread_scheduler_startup)
+    m_thread_startup                         0x0800060d   Thumb Code    38  m_thread.o(i.m_thread_startup)
+    m_thread_suspend                         0x08000639   Thumb Code    84  m_thread.o(i.m_thread_suspend)
+    m_tick_update                            0x0800069d   Thumb Code    78  m_thread.o(i.m_tick_update)
+    main                                     0x080006f5   Thumb Code    64  main_1.o(i.main)
+    _fp_init                                 0x08000741   Thumb Code    10  fpinit.o(x$fpl$fpinit)
+    __fplib_config_fpu_vfp                   0x08000749   Thumb Code     0  fpinit.o(x$fpl$fpinit)
+    __fplib_config_pureend_doubles           0x08000749   Thumb Code     0  fpinit.o(x$fpl$fpinit)
+    Region$$Table$$Base                      0x0800074c   Number         0  anon$$obj.o(Region$$Table)
+    Region$$Table$$Limit                     0x0800076c   Number         0  anon$$obj.o(Region$$Table)
     flag1                                    0x20002000   Data           1  main_1.o(.data)
     flag2                                    0x20002001   Data           1  main_1.o(.data)
     flag3                                    0x20002002   Data           1  main_1.o(.data)
@@ -562,8 +563,8 @@ Image Symbol Table
     _m_interrupt_to_thread                   0x20002008   Data           4  m_thread.o(.data)
     _m_thread_switch_interrupt_flag          0x2000200c   Data           4  m_thread.o(.data)
     SystemCoreClock                          0x20002028   Data           4  system_stm32f4xx.o(.data)
-    __libspace_start                         0x20002368   Data          96  libspace.o(.bss)
-    __temporary_stack_top$libspace           0x200023c8   Data           0  libspace.o(.bss)
+    __libspace_start                         0x20002674   Data          96  libspace.o(.bss)
+    __temporary_stack_top$libspace           0x200026d4   Data           0  libspace.o(.bss)
 
 
 
@@ -573,9 +574,9 @@ Memory Map of the image
 
   Image Entry point : 0x08000189
 
-  Load Region LR_IROM1 (Base: 0x08000000, Size: 0x00000760, Max: 0x00100000, ABSOLUTE)
+  Load Region LR_IROM1 (Base: 0x08000000, Size: 0x00000798, Max: 0x00100000, ABSOLUTE)
 
-    Execution Region ER_IROM1 (Exec base: 0x08000000, Load base: 0x08000000, Size: 0x00000734, Max: 0x00100000, ABSOLUTE)
+    Execution Region ER_IROM1 (Exec base: 0x08000000, Load base: 0x08000000, Size: 0x0000076c, Max: 0x00100000, ABSOLUTE)
 
     Exec Addr    Load Addr    Size         Type   Attr      Idx    E Section Name        Object
 
@@ -643,36 +644,37 @@ Memory Map of the image
     0x08000400   0x08000400   0x00000004   Code   RO           94    i._m_free_thread_entry  m_thread.o
     0x08000404   0x08000404   0x00000006   Code   RO           95    i._m_list_init      m_thread.o
     0x0800040a   0x0800040a   0x00000002   PAD
-    0x0800040c   0x0800040c   0x00000074   Code   RO           99    i._m_thread_scheduler  m_thread.o
-    0x08000480   0x08000480   0x0000003c   Code   RO          100    i._m_thread_statck_init  m_thread.o
-    0x080004bc   0x080004bc   0x00000020   Code   RO            5    i.f1                main_1.o
-    0x080004dc   0x080004dc   0x00000020   Code   RO            6    i.f2                main_1.o
-    0x080004fc   0x080004fc   0x00000020   Code   RO            7    i.f3                main_1.o
-    0x0800051c   0x0800051c   0x00000054   Code   RO          101    i.m_systick_init    m_thread.o
-    0x08000570   0x08000570   0x00000050   Code   RO          102    i.m_thread_creat    m_thread.o
-    0x080005c0   0x080005c0   0x00000044   Code   RO          103    i.m_thread_init     m_thread.o
-    0x08000604   0x08000604   0x00000010   Code   RO          104    i.m_thread_scheduler_startup  m_thread.o
-    0x08000614   0x08000614   0x0000002c   Code   RO          105    i.m_thread_startup  m_thread.o
-    0x08000640   0x08000640   0x00000048   Code   RO          106    i.m_thread_suspend  m_thread.o
-    0x08000688   0x08000688   0x00000034   Code   RO          107    i.m_tick_update     m_thread.o
-    0x080006bc   0x080006bc   0x0000004c   Code   RO            8    i.main              main_1.o
-    0x08000708   0x08000708   0x0000000a   Code   RO          346    x$fpl$fpinit        fz_wm.l(fpinit.o)
-    0x08000712   0x08000712   0x00000002   PAD
-    0x08000714   0x08000714   0x00000020   Data   RO          414    Region$$Table       anon$$obj.o
+    0x0800040c   0x0800040c   0x00000058   Code   RO           99    i._m_thread_scheduler  m_thread.o
+    0x08000464   0x08000464   0x00000040   Code   RO          100    i._m_thread_statck_init  m_thread.o
+    0x080004a4   0x080004a4   0x00000020   Code   RO            5    i.f1                main_1.o
+    0x080004c4   0x080004c4   0x00000020   Code   RO            6    i.f2                main_1.o
+    0x080004e4   0x080004e4   0x00000020   Code   RO            7    i.f3                main_1.o
+    0x08000504   0x08000504   0x00000054   Code   RO          101    i.m_systick_init    m_thread.o
+    0x08000558   0x08000558   0x00000060   Code   RO          102    i.m_thread_creat    m_thread.o
+    0x080005b8   0x080005b8   0x00000044   Code   RO          103    i.m_thread_init     m_thread.o
+    0x080005fc   0x080005fc   0x00000010   Code   RO          104    i.m_thread_scheduler_startup  m_thread.o
+    0x0800060c   0x0800060c   0x0000002c   Code   RO          105    i.m_thread_startup  m_thread.o
+    0x08000638   0x08000638   0x00000064   Code   RO          106    i.m_thread_suspend  m_thread.o
+    0x0800069c   0x0800069c   0x00000058   Code   RO          107    i.m_tick_update     m_thread.o
+    0x080006f4   0x080006f4   0x0000004c   Code   RO            8    i.main              main_1.o
+    0x08000740   0x08000740   0x0000000a   Code   RO          346    x$fpl$fpinit        fz_wm.l(fpinit.o)
+    0x0800074a   0x0800074a   0x00000002   PAD
+    0x0800074c   0x0800074c   0x00000020   Data   RO          414    Region$$Table       anon$$obj.o
 
 
-    Execution Region RW_IRAM1 (Exec base: 0x20002000, Load base: 0x08000734, Size: 0x000023c8, Max: 0x00010000, ABSOLUTE)
+    Execution Region RW_IRAM1 (Exec base: 0x20002000, Load base: 0x0800076c, Size: 0x000026d8, Max: 0x00010000, ABSOLUTE)
 
     Exec Addr    Load Addr    Size         Type   Attr      Idx    E Section Name        Object
 
-    0x20002000   0x08000734   0x00000003   Data   RW            9    .data               main_1.o
-    0x20002003   0x08000737   0x00000001   PAD
-    0x20002004   0x08000738   0x00000024   Data   RW          110    .data               m_thread.o
-    0x20002028   0x0800075c   0x00000004   Data   RW          224    .data               system_stm32f4xx.o
-    0x2000202c        -       0x0000033c   Zero   RW          108    .bss                m_thread.o
-    0x20002368        -       0x00000060   Zero   RW          288    .bss                c_w.l(libspace.o)
-    0x200023c8        -       0x00001000   Zero   RW          212    HEAP                startup_stm32f407xx.o
-    0x200033c8        -       0x00001000   Zero   RW          211    STACK               startup_stm32f407xx.o
+    0x20002000   0x0800076c   0x00000003   Data   RW            9    .data               main_1.o
+    0x20002003   0x0800076f   0x00000001   PAD
+    0x20002004   0x08000770   0x00000024   Data   RW          110    .data               m_thread.o
+    0x20002028   0x08000794   0x00000004   Data   RW          224    .data               system_stm32f4xx.o
+    0x2000202c        -       0x00000648   Zero   RW          108    .bss                m_thread.o
+    0x20002674        -       0x00000060   Zero   RW          288    .bss                c_w.l(libspace.o)
+    0x200026d4   0x08000798   0x00000004   PAD
+    0x200026d8        -       0x00001000   Zero   RW          212    HEAP                startup_stm32f407xx.o
+    0x200036d8        -       0x00001000   Zero   RW          211    STACK               startup_stm32f407xx.o
 
 
 ==============================================================================
@@ -682,14 +684,14 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   Object Name
 
-       610         94          0         36        828      38851   m_thread.o
+       666         92          0         36       1608      38827   m_thread.o
        176         22          0          0          0        616   m_thread_switch.o
        172         24          0          3          0     565898   main_1.o
         64         26        392          0       8192        852   startup_stm32f407xx.o
        100         18          0          4          0       1459   system_stm32f4xx.o
 
     ----------------------------------------------------------------------
-      1126        184        424         44       9020     607676   Object Totals
+      1182        182        424         44       9800     607652   Object Totals
          0          0         32          0          0          0   (incl. Generated)
          4          0          0          1          0          0   (incl. Padding)
 
@@ -720,8 +722,8 @@ Image component sizes
         10          0          0          0          0        116   fpinit.o
 
     ----------------------------------------------------------------------
-       294         16          0          0         96        700   Library Totals
-         8          0          0          0          0          0   (incl. Padding)
+       294         16          0          0        100        700   Library Totals
+         8          0          0          0          4          0   (incl. Padding)
 
     ----------------------------------------------------------------------
 
@@ -731,7 +733,7 @@ Image component sizes
         10          0          0          0          0        116   fz_wm.l
 
     ----------------------------------------------------------------------
-       294         16          0          0         96        700   Library Totals
+       294         16          0          0        100        700   Library Totals
 
     ----------------------------------------------------------------------
 
@@ -740,15 +742,15 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   
 
-      1420        200        424         44       9116     606920   Grand Totals
-      1420        200        424         44       9116     606920   ELF Image Totals
-      1420        200        424         44          0          0   ROM Totals
+      1476        198        424         44       9900     606896   Grand Totals
+      1476        198        424         44       9900     606896   ELF Image Totals
+      1476        198        424         44          0          0   ROM Totals
 
 ==============================================================================
 
-    Total RO  Size (Code + RO Data)                 1844 (   1.80kB)
-    Total RW  Size (RW Data + ZI Data)              9160 (   8.95kB)
-    Total ROM Size (Code + RO Data + RW Data)       1888 (   1.84kB)
+    Total RO  Size (Code + RO Data)                 1900 (   1.86kB)
+    Total RW  Size (RW Data + ZI Data)              9944 (   9.71kB)
+    Total ROM Size (Code + RO Data + RW Data)       1944 (   1.90kB)
 
 ==============================================================================
 
