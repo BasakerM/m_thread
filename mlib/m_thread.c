@@ -13,11 +13,11 @@
 /* 向下对齐 */
 #define _m_align_down(size, align) ((size) & ~((align) - 1))
 /* 已知一个结构体里面的成员的地址，反推出该结构体的首地址 */
-#define _m_container_of(ptr, type, member) \
-((type *)((char *)(ptr) - (unsigned long)(&((type *)0)->member)))
+//#define _m_container_of(ptr, type, member) \
+//((type *)((char *)(ptr) - (unsigned long)(&((type *)0)->member)))
 
-#define _m_list_entry(node, type, member) \
-_m_container_of(node, type, member)
+#define _m_getThread(node, type, member) ((type *)((char *)(node) - (unsigned long)(&((type *)0)->member)))
+//_m_container_of(node, type, member)
 
 /**************** 类型重定义 ****************/
 
@@ -39,12 +39,9 @@ typedef struct _m_struct_list_t
 typedef struct _m_struct_thread_t
 {
 	void *sp; /* 线程栈指针 */
-	
 	_m_uint8_t priority; /* 线程优先级 */
 	_m_uint32_t timeout; /* 超时时间 */
-	_m_uint8_t state; /* 就绪状态 */
-	
-	_m_list_t timer_list; /* 定时器 */
+	_m_list_t timeout_list; /* 超时链表 */
 }_m_thread_t;
 
 struct _exception_stack_frame
@@ -77,18 +74,19 @@ struct _stack_frame
 
 /**************** 变量定义 ****************/
 
-/* 异常和中断处理表 */
+/* 异常和中断处理表,在实现上下文切换的汇编文件中被调用 */
 _m_uint32_t _m_interrupt_from_thread; /* 用于存储上一个线程的栈的 sp 的指针 */
 _m_uint32_t _m_interrupt_to_thread; /* 用于存储下一个将要运行的线程的栈的 sp 的指针 */
 _m_uint32_t _m_thread_switch_interrupt_flag; /* PendSV 中断服务函数执行标志 */
 
 ALIGN(4)
-static _m_statck_t _m_thread_statck[m_thread_max+1][_m_thread_statck_size]; /* 线程栈 */
-static _m_thread_t _m_thread[m_thread_max+1]; /* 线程控制块 */
-static _m_list_t _m_timer_list_head; /* 定时器链表头 */
-static _m_thread_t *_m_current_thread; /* 当前线程控制块指针 */
-static _m_uint32_t _m_tick; /* 时基计数 */
-static _m_uint32_t _m_priority_ready_group; /* 优先级就绪组 */
+_m_statck_t _m_thread_statck[m_thread_max+1][_m_thread_statck_size]; /* 线程栈 */
+_m_thread_t _m_thread[m_thread_max+1]; /* 线程控制块 */
+_m_thread_t *_m_current_thread; /* 当前线程控制块指针 */
+_m_list_t _m_timeout_list_head; /* 超时链表头 */
+_m_uint32_t _m_tick; /* 时基计数 */
+_m_uint32_t _m_priority_ready_group; /* 优先级就绪组 */
+_m_uint32_t _m_priority_ready_group_temp; /* 临时的就绪组,在初始化线程的时候先添加到这个组,在启动线程后拷贝到正式的就绪组 */
 
 /* _m_lowest_1_bitmap[] 数组的解析
 * 将一个 8 位整形数的取值范围 0~255 作为数组的索引，
@@ -132,10 +130,17 @@ void _m_list_remove(_m_list_t *rlist); /* 移除一个节点 */
 void _m_thread_switch_to(_m_uint32_t to); /* 首次切换线程 */
 void _m_thread_switch(_m_uint32_t from, _m_uint32_t to); /* 切换线程 */
 
+void m_thread_init(unsigned char threadmax, unsigned short stackmax); /* 初始化线程功能 */
+void m_thread_creat(m_uint8_t priority, void *entry); /* 创建一个线程 */
+void m_thread_scheduler_startup(void); /* 启动线程 */
+void m_thread_suspend(m_uint32_t tick); /* 挂起线程 */
+
+void m_tick_update(void); /* 计时函数 */
+
+/**** 全局变量 ****/
+m_thread_t m_thread = {m_thread_init, m_tick_update, m_thread_creat, m_thread_scheduler_startup, m_thread_suspend};
+
 /**************** 函数定义 ****************/
-
-
-	static unsigned short thread1_tick = 0,thread2_tick = 0;
 
 /**************** 外部可调用函数 ****************/
 
@@ -148,22 +153,36 @@ void _m_thread_switch(_m_uint32_t from, _m_uint32_t to); /* 切换线程 */
 //}
 
 /*
-*
+*	设置优先级就绪组中的对应位置
 */
-uint32_t m_systick_init(uint32_t ticks)
+static inline void _m_set_priorityReadyGroup(_m_uint8_t priority)
 {
-  if ((ticks - 1UL) > SysTick_LOAD_RELOAD_Msk)
-  {
-    return (1UL);                                                   /* Reload value impossible */
-  }
+	if(priority >= 1 && priority <= m_thread_max)
+	{
+		_m_priority_ready_group |= 1 << ((priority - 1));
+	}
+}
 
-  SysTick->LOAD  = (uint32_t)(ticks - 1UL);                         /* set reload register */
-  NVIC_SetPriority (SysTick_IRQn, (1UL << __NVIC_PRIO_BITS) - 1UL); /* set Priority for Systick Interrupt */
-  SysTick->VAL   = 0UL;                                             /* Load the SysTick Counter Value */
-  SysTick->CTRL  = SysTick_CTRL_CLKSOURCE_Msk |
-                   SysTick_CTRL_TICKINT_Msk   |
-                   SysTick_CTRL_ENABLE_Msk;                         /* Enable SysTick IRQ and SysTick Timer */
-  return (0UL);                                                     /* Function successful */
+/*
+*	设置临时优先级就绪组中的对应位置
+*/
+static inline void _m_set_priorityReadyGroupTemp(_m_uint8_t priority)
+{
+	if(priority >= 1 && priority <= m_thread_max)
+	{
+		_m_priority_ready_group_temp |= 1 << ((priority - 1));
+	}
+}
+
+/*
+*	清除优先级就绪组中的对应位置
+*/
+static inline void _m_reset_priorityReadyGroup(_m_uint8_t priority)
+{
+	if(priority >= 1 && priority <= m_thread_max)
+	{
+		_m_priority_ready_group &= ~(1 << ((priority - 1)));
+	}
 }
 
 /*
@@ -173,29 +192,18 @@ uint32_t m_systick_init(uint32_t ticks)
 * 返回 :
 * 	void
 */
-void m_thread_init(void)
+void m_thread_init(unsigned char threadmax, unsigned short stackmax)
 {
-	/* 初始化定时器链表头指针 */
-	_m_list_init(&_m_timer_list_head);
 	/* 初始化当前线程控制块指针 */
 	_m_current_thread = _m_null;
 	/* 初始化时基计数器 */
 	_m_current_thread = 0;
+	/* 初始化超时链表头指针 */
+	_m_list_init(&_m_timeout_list_head);
 	/* 初始化空闲线程 */
 	m_thread_creat(0,_m_free_thread_entry);
 	/* 手动指定第一个运行的线程 */
 	_m_current_thread = &_m_thread[0]; /* 空闲线程 */
-	/* 初始化 systick */
-	m_systick_init(SystemCoreClock/1000);
-}
-
-/*
-*
-*/
-void SysTick_Handler(void)
-{
-	/* 时基更新 */
-	m_tick_update();
 }
 
 /*
@@ -211,37 +219,26 @@ void m_thread_creat(_m_uint8_t priority, void *entry)
 	/* 不允许创建空闲线程和超出范围的线程 */
 	if(priority > m_thread_max) { return; }
 	/* 初始化线程 */
-	_m_list_init(&(_m_thread[priority].timer_list));
+	/* 设置优先级 */
 	_m_thread[priority].priority = priority;
-	_m_thread[priority].state = 1;
 	/* 初始化线程栈,获取栈顶指针	*/
 	_m_thread[priority].sp = (void*)_m_thread_statck_init(entry,
 			(void*)((char*)(_m_thread_statck[priority]) + _m_thread_statck_size - 2));
+	/* 初始化超时链表 */
+	_m_list_init(&(_m_thread[priority].timeout_list));
+	/* 设置优先级就绪组的对应位 */
+	_m_set_priorityReadyGroupTemp(priority);
 }
 
 /*
 * 线程启动函数
-* 参数 :
-* 	_m_uint8_t priority : 线程优先级
 * 返回 :
 * 	void
 */
-void m_thread_startup(_m_uint8_t priority)
-{
-	_m_uint8_t temp = 0;
-	/* 关中断 */
-	temp = m_interrupt_disable();
-	/* 置位对应的优先级就绪组,因为空线程占用了优先级0但不会被添加到组中,所以优先级1处于位0,所以要-1 */
-	_m_priority_ready_group |= 1 << (priority - 1);
-	/* 线程调度 */
-//	_m_thread_scheduler();
-	/* 开中断 */
-	m_interrupt_enable(temp);
-}
-
-
 void m_thread_scheduler_startup(void)
 {
+	/* 将临时就绪组的值赋值到正式就绪组 */
+	_m_priority_ready_group = _m_priority_ready_group_temp;
 	/* 切换到第一个线程 */
 	_m_thread_switch_to((_m_uint32_t)&_m_current_thread->sp);
 }
@@ -255,32 +252,32 @@ void m_thread_scheduler_startup(void)
 */
 void m_thread_suspend(_m_uint32_t tick)
 {
-	m_interrupt_disable();
-	
-	if(_m_current_thread == &_m_thread[1])
-	{
-		thread1_tick = 10;
-		_m_thread[1].timeout = 10;//_m_tick + 10;
-		_m_thread[1].state = 0;
-	}
-	else if(_m_current_thread == &_m_thread[2])
-	{
-		thread2_tick = 10;
-		_m_thread[2].timeout = 10;//_m_tick + 10;
-		_m_thread[2].state = 0;
-	}
-		
-	_m_thread_scheduler();
-	
-	m_interrupt_enable(0);
-	return;
-//	_m_uint8_t temp = 0;
+	_m_list_t* orderList = _m_null;
+	_m_thread_t* orderthread = _m_null;
+
 	/* 关中断 */
 	/*temp =*/ m_interrupt_disable();
+	/* 拿到超时链表中第一个节点 */
+	orderList = _m_timeout_list_head.next;
 	/* 计算超时时间 */
 	_m_current_thread->timeout = tick + _m_tick;
 	/* 排序插入优先级就绪链表 */
-	_m_list_insert_before(&_m_timer_list_head,&(_m_current_thread->timer_list));
+	for(; orderList != &_m_timeout_list_head; orderList = orderList->next)
+	{
+		/* 获取线程控制块的指针 */
+		orderthread = _m_getThread(orderList,_m_thread_t,timeout_list);
+		/* 超时时间大的排在前面,所以从头开始,也就是从最大的开始比较,找到比自己小的然后插在前面 */
+		/* 如果没有找到比自己小的,或者链表还没有挂载线程块,那出了循环后指针指向表头,插到表头前也就是插到表尾 */
+		if(_m_current_thread->timeout < orderthread->timeout)
+		{
+			break;
+		}
+	}
+	/* 插入到超时链表 */
+	_m_list_insert_before(orderList,&(_m_current_thread->timeout_list));
+	/* 复位优先级就绪组中对应的位 */
+	_m_reset_priorityReadyGroup(_m_current_thread->priority);
+	
 	/* 线程调度 */
 	_m_thread_scheduler();
 	/* 开中断 */
@@ -298,83 +295,42 @@ void m_thread_suspend(_m_uint32_t tick)
 */
 void m_tick_update(void)
 {
-	_m_thread_t *thread;
-	_m_list_t *index_list;
-	
-	////////////////////////////////////
-	++_m_tick;
-	if(_m_thread[1].timeout > 0)
-	{
-		--_m_thread[1].timeout;
-	}
-	if(_m_thread[2].timeout > 0)
-	{
-		--_m_thread[2].timeout;
-	}
-	if(_m_thread[1].timeout == 0)
-	{
-		_m_thread[1].state = 1;
-	}
-	if(_m_thread[2].timeout == 0)
-	{
-		_m_thread[2].state = 1;
-	}
-//	if(thread1_tick > 0)
-//	{
-//		--thread1_tick;
-//	}
-//	if(thread2_tick > 0)
-//	{
-//		--thread2_tick;
-//	}
-//	if(thread1_tick == 0)
-//	{
-//		_m_thread[1].state = 1;
-//	}
-//	if(thread2_tick == 0)
-//	{
-//		_m_thread[2].state = 1;
-//	}
-	_m_thread_scheduler();	
-	
-	return;
-	///////////////////////////////////
+	_m_list_t* compareList = _m_null;
+	_m_thread_t* compareThread = _m_null;
 	
 	/* 计时器计数 */
 	++_m_tick;
 	
-	while(1)
+//	/* 如果超时链表还没有节点,说明当前没有线程被挂起 */
+//	/* 这种情况只有可能是刚启动线程功能时,只有空闲线程在运行,其他线程在初始化时已就绪,但未设置超时 */
+//	/* 或者当前只有一个用户线程,且该线程正在运行未挂起 */
+//	/* 所以这种情况需要先检查优先级就绪组,查看是否有线程已就绪,然后判断优先级最高的已就绪线程是否是当前线程,不是则执行调度 */
+//	if(_m_timeout_list_head.next == &_m_timeout_list_head)
+//	{
+//		return;
+//	}
+	/* 查找超时链表中,超时时间到达的一个或多个线程,将他们在优先级就绪组中对应的位置置位 */
+	compareList = _m_timeout_list_head.next;
+	/* 当 */
+	while(compareList != &_m_timeout_list_head)
 	{
-		/* 获取下一个节点 */
-		index_list = _m_timer_list_head.next;
-		/* 指向头节点,说明已经遍历了链表 */
-		if(index_list == &_m_timer_list_head)
+		/* 拿到线程控制块 */
+		compareThread = _m_getThread(compareList,_m_thread_t,timeout_list);
+		/* 超时时间到达 */
+		if(_m_tick == compareThread->timeout)
 		{
-			break;
-		}
-		/* 获取线程控制块指针 */
-		thread = _m_list_entry(index_list,
-														_m_thread_t,
-														timer_list);
-		/* 按照顺序检索是否超时,定时器链表的排序规则依据超时时间和优先级。 */
-		/* 首先按照超时时间做升序,当相同时,则按照优先级做降序 */
-		if(thread->timeout != _m_tick)
-		{
-			/* 时间不相等,则说明时间未到,如果排序在前的时间都不相等,那后面的也不会相等,则直接退出循环 */
-			break;
-		}
-		else if(thread->timeout == _m_tick)
-		{
-			/* 时间相等,则说明时间到了,将该线程在优先级就绪组中置位,因为空线程占用了优先级0但不会被添加到组中,所以优先级1处于位0,所以要-1 */
-			_m_priority_ready_group |= 1 << (thread->priority-1);
-			/* 就绪后从定时器链表中移除 */
-			_m_list_remove(index_list);
-			/* 检索下一个节点,因为有可能下一个节点的超时时间相同但优先级低 */
+			/* 设置优先级就绪组 */
+			_m_set_priorityReadyGroup(compareThread->priority);
+			/* 指向下一个节点 */
+			compareList = compareList->next;
+			/* 从超时链表中移除 */
+			_m_list_remove(compareList->prev);
 			continue;
 		}
-		/* 只有当检索到时间未到的线程,或者说处理完所有时间到达的线程后才会退出循环 */
-		/* 因为时间相同时按照优先级排序,所有当出现该情况时,for需要继续处理排在后面优先级较低的线程,所以设定为检索到时间未到的线程时才退出循环 */
+		/* 因为超时链表是按照顺序排列的,所以一个未到达,那之后的都未到达,所以遇到未到达则直接跳出 */
+		else { break; }
 	}
+	
 	/* 线程调度 */
 	_m_thread_scheduler();
 }
@@ -396,45 +352,9 @@ void _m_free_thread_entry(void)
 */
 void _m_thread_scheduler(void)
 {
-	volatile _m_uint8_t index = 0;
+	volatile _m_uint8_t index = 0; /* 线程控制块数组的下标,相当于是线程的优先级 */
 //	_m_thread_t *to_thread = _m_null;
 	_m_thread_t *from_thread = _m_null;
-	
-	if(_m_thread[1].state == 1)
-	{
-		from_thread = _m_current_thread;
-		_m_current_thread = &_m_thread[1];
-	}
-	else if(_m_thread[2].state == 1)
-	{
-		from_thread = _m_current_thread;
-		_m_current_thread = &_m_thread[2];
-	}
-	else
-	{
-		from_thread = _m_current_thread;
-		_m_current_thread = &_m_thread[0];
-	}
-	
-//	if(thread1_tick != 0 && thread2_tick != 0)
-//	{
-//		if(_m_current_thread == &_m_thread[0]) return;
-//		from_thread = _m_current_thread;
-//		_m_current_thread = &_m_thread[0];
-//	}
-//	else if(thread1_tick == 0)
-//	{
-//		from_thread = _m_current_thread;
-//		_m_current_thread = &_m_thread[1];
-//	}
-//	else if(thread2_tick == 0)
-//	{
-//		from_thread = _m_current_thread;
-//		_m_current_thread = &_m_thread[2];
-//	}
-	_m_thread_switch((_m_uint32_t)&from_thread->sp,(_m_uint32_t)&_m_current_thread->sp);
-	
-	return;
 	
 	/* 为0,则没有线程就绪,那就运行空闲线程 */
 	if(_m_priority_ready_group == 0)
@@ -465,8 +385,16 @@ void _m_thread_scheduler(void)
 		{
 			index = 1 + 24 + _m_lowest_1_bitmap[_m_priority_ready_group>>24&0xff];
 		}
-		/* 将优先级就绪组中的对应位清零 */
-		_m_priority_ready_group &= ~(0x00000001 << (index - 1));
+//		/* 将优先级就绪组中的对应位清零 */
+//		_m_priority_ready_group &= ~(0x00000001 << (index - 1));
+	}
+	/* 如果就绪的线程就是当前运行的线程则不进行调度 */
+	/* 通过优先级就绪组得到的就绪线程肯定是优先级最高的就绪线程 */
+	/* 所以当前线程要么等于获得的就绪线程,要么优先级低于获得的就绪线程 */
+	/* 所以只要在相等的时候不调度就行了 */
+	if(_m_current_thread->priority == index)
+	{
+		return;
 	}
 	/* 获取对应的线程块 */
 	from_thread = _m_current_thread;
