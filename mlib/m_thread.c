@@ -3,7 +3,7 @@
 
 /**** 宏定义 ****/
 
-#define _m_thread_statck_size 512 /* 单个线程的栈空间大小 */
+#define _m_thread_statck_size 256 /* 单个线程的栈空间大小 */
 
 #define _m_null (0)
 
@@ -131,9 +131,9 @@ void _m_thread_switch_to(_m_uint32_t to); /* 首次切换线程 */
 void _m_thread_switch(_m_uint32_t from, _m_uint32_t to); /* 切换线程 */
 
 void m_thread_init(unsigned char threadmax, unsigned short stackmax); /* 初始化线程功能 */
-void m_thread_creat(m_uint8_t priority, void *entry); /* 创建一个线程 */
+void m_thread_creat(_m_uint8_t priority, void *entry); /* 创建一个线程 */
 void m_thread_scheduler_startup(void); /* 启动线程 */
-void m_thread_suspend(m_uint32_t tick); /* 挂起线程 */
+void m_thread_suspend(_m_uint32_t tick); /* 挂起线程 */
 
 void m_tick_update(void); /* 计时函数 */
 
@@ -256,21 +256,53 @@ void m_thread_suspend(_m_uint32_t tick)
 	_m_thread_t* orderthread = _m_null;
 
 	/* 关中断 */
-	/*temp =*/ m_interrupt_disable();
+	m_interrupt_disable();
+	/* 无效的参数 */
+	if(tick == 0) { m_interrupt_enable(0); return; }
 	/* 拿到超时链表中第一个节点 */
 	orderList = _m_timeout_list_head.next;
 	/* 计算超时时间 */
 	_m_current_thread->timeout = tick + _m_tick;
-	/* 排序插入优先级就绪链表 */
+	/* 排序插入超时链表 */
 	for(; orderList != &_m_timeout_list_head; orderList = orderList->next)
 	{
 		/* 获取线程控制块的指针 */
 		orderthread = _m_getThread(orderList,_m_thread_t,timeout_list);
-		/* 超时时间大的排在前面,所以从头开始,也就是从最大的开始比较,找到比自己小的然后插在前面 */
+		/* 超时时间小的排在前面,因为更接近计数时基(虽然小但也比计数时基大),所以从头开始比较(头上的最小),找到比自己大的链表,出循环后插在它前面 */
 		/* 如果没有找到比自己小的,或者链表还没有挂载线程块,那出了循环后指针指向表头,插到表头前也就是插到表尾 */
+		
+		/* 当前线程的超时时间比该节点的小 */
 		if(_m_current_thread->timeout < orderthread->timeout)
 		{
+			/* 有一种情况是,当发生上溢后,虽然数值上看是最小的,但实际上要最后运行应该插在链表的表尾 */
+			/* 如果比其他线程超时时间小且比当前的计数时基还小,那就是发生了上溢,那么虽然数值更小,但是实际上在时间轴上应该排在后面 */
+			if(_m_current_thread->timeout < _m_tick)
+			{
+				/* 链表该节点的超时时间比计时计数大,说明只有当前线程的超时时间发生了上溢,那么继续查找 */
+				if(orderthread->timeout > _m_tick) { continue; }
+				/* 链表该节点的超时时间也比计时计数小,说明都发生了上溢,那么数值小的先运行,应排序在该节点前面,退出循环插入 */
+				else if(orderthread->timeout < _m_tick) { break; }
+			}
+			/* 没有发生上溢的情况,那么找到比自己大的就退出循环插入节点 */
 			break;
+		}
+		/* 超时时间大 */
+		else if(_m_current_thread->timeout > orderthread->timeout)
+		{
+			/* 有一种情况是,只有当前线程的超时时间没有发生上溢,虽然看上去数指大,但实际上应该插在链表的头上 */
+			if(_m_current_thread->timeout > _m_tick)
+			{
+				/* 链表该节点的超时时间比计时计数小,说明只有当前线程的超时时间没有发生了上溢,应排序在该节点前面,退出循环插入 */
+				if(orderthread->timeout < _m_tick) { break; }
+				/* 链表该节点的超时时间也比计时计数大,说明都没有发生上溢,那么数值大的后运行,那么继续查找 */
+				else if(orderthread->timeout > _m_tick) { continue; }
+			}
+		}
+		/* 超时时间相等,那就比较优先级,优先级越小,等级越高 */
+		else if(_m_current_thread->timeout == orderthread->timeout)
+		{
+			/* 找到比自己优先级大的就退出循环插入节点 */
+			if(_m_current_thread->priority < orderthread->priority) { break; }
 		}
 	}
 	/* 插入到超时链表 */
@@ -350,9 +382,9 @@ void _m_free_thread_entry(void)
 * 返回 :
 * 	void
 */
-void _m_thread_scheduler(void)
+static inline void _m_thread_scheduler(void)
 {
-	volatile _m_uint8_t index = 0; /* 线程控制块数组的下标,相当于是线程的优先级 */
+	_m_uint8_t index = 0; /* 线程控制块数组的下标,相当于是线程的优先级 */
 //	_m_thread_t *to_thread = _m_null;
 	_m_thread_t *from_thread = _m_null;
 	
@@ -458,7 +490,7 @@ _m_statck_t* _m_thread_statck_init(void *entry,_m_statck_t *addr)
 * 返回 :
 * 	void
 */
-void _m_list_init(_m_list_t *list)
+static inline void _m_list_init(_m_list_t *list)
 {
     list->next = list;
     list->prev = list;
@@ -473,7 +505,7 @@ void _m_list_init(_m_list_t *list)
 * 返回 :
 * 	void
 */
-void _m_list_insert_before(_m_list_t *list,_m_list_t *ilist)
+static inline void _m_list_insert_before(_m_list_t *list,_m_list_t *ilist)
 {
 	ilist->prev = list->prev;
 	ilist->prev->next = ilist;
@@ -490,13 +522,15 @@ void _m_list_insert_before(_m_list_t *list,_m_list_t *ilist)
 * 返回 :
 * 	void
 */
-void _m_list_insert_after(_m_list_t *list,_m_list_t *ilist)
+/*	未使用
+static inline void _m_list_insert_after(_m_list_t *list,_m_list_t *ilist)
 {
 	ilist->next = list->next;
 	ilist->next->prev = ilist;
 	ilist->prev = list;
 	list->next = ilist;
 }
+*/
 
 /*
 * 功能 :
@@ -506,7 +540,7 @@ void _m_list_insert_after(_m_list_t *list,_m_list_t *ilist)
 * 返回 :
 * 	void
 */
-void _m_list_remove(_m_list_t *rlist)
+static inline void _m_list_remove(_m_list_t *rlist)
 {
 	rlist->prev->next = rlist->next;
 	rlist->next->prev = rlist->prev;

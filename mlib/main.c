@@ -12,9 +12,9 @@ void f1(void)
 	for (;;)
 	{
 		flag1 = 1;
-		m_thread.sleep(10);
+		m_thread.sleep(2);
 		flag1 = 0;
-		m_thread.sleep(10);
+		m_thread.sleep(2);
 	}
 }
 
@@ -45,9 +45,9 @@ void f4(void)
 	for (;;)
 	{
 		flag4 = 1;
-		m_thread.sleep(2);
+		m_thread.sleep(10);
 		flag4 = 0;
-		m_thread.sleep(2);
+		m_thread.sleep(10);
 	}
 }
 

@@ -1,13 +1,6 @@
 #ifndef _m_thread_h
 #define _m_thread_h
 
-#include "m_public.h"
-
-/*
-*	要解决的问题:
-*		1.超时链表的排序问题
-*/
-
 /* 宏定义 */
 
 #define m_thread_max 4 /* 可创建最大线程数是16,优先级1-16 */
@@ -48,7 +41,7 @@ typedef struct
 extern m_thread_t m_thread;
 
 /* 函数声明 */
-m_uint8_t m_interrupt_disable(void);
-void m_interrupt_enable(m_uint8_t);
+unsigned char m_interrupt_disable(void);
+void m_interrupt_enable(unsigned char);
 
 #endif
